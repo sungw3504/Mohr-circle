@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mohr's Circle Interactive</title>
+<style>
+  body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;background:#f4f6f8;color:#222}
+  header{padding:12px 20px;background:#500000;color:#fff}
+  header h1{margin:0;font-size:20px}
+  .wrap{display:flex;flex-wrap:wrap;gap:16px;padding:16px;justify-content:center}
+  .card{background:#fff;border-radius:10px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+  canvas{display:block;max-width:100%}
+  .ctrl{min-width:260px;max-width:340px}
+  label{display:block;margin-top:10px;font-size:14px}
+  input[type=number]{width:80px;padding:3px}
+  input[type=range]{width:100%}
+  button{margin:6px 4px 0 0;padding:6px 10px;border:0;border-radius:6px;background:#500000;color:#fff;cursor:pointer}
+  table{border-collapse:collapse;font-size:14px;margin-top:8px;width:100%}
+  td{padding:2px 4px;border-bottom:1px solid #eee}
+  .note{font-size:12px;color:#666;margin-top:8px}
+</style>
+</head>
+<body>
+<header><h1>Mohr's Circle &amp; Rotating Stress Element (2D)</h1></header>
+<div class="wrap">
+  <div class="card ctrl">
+    <b>Input stresses (any unit, e.g. MPa)</b>
+    <label>σx <input type="number" id="sx" value="80"></label>
+    <label>σy <input type="number" id="sy" value="-20"></label>
+    <label>τxy <input type="number" id="txy" value="40"></label>
+    <label>θ (deg, CCW): <b id="thv">0</b>°
+      <input type="range" id="th" min="-180" max="180" step="0.5" value="0"></label>
+    <button id="bp">Principal planes</button>
+    <button id="bs">Max shear planes</button>
+    <button id="b0">Reset θ</button>
+    <button id="ba">Animate</button>
+    <table>
+      <tr><td>σx′</td><td id="o1"></td></tr>
+      <tr><td>σy′</td><td id="o2"></td></tr>
+      <tr><td>τx′y′</td><td id="o3"></td></tr>
+      <tr><td>σ1 / σ2</td><td id="o4"></td></tr>
+      <tr><td>θp (σ1 plane)</td><td id="o5"></td></tr>
+      <tr><td>τmax</td><td id="o6"></td></tr>
+      <tr><td>θs</td><td id="o7"></td></tr>
+    </table>
+    <div class="note">Sign convention: tension +, τxy + = +y direction on the +x face. τ axis is drawn downward, so a CCW element rotation θ appears as a CCW 2θ rotation on the circle.</div>
+  </div>
+  <div class="card"><canvas id="el" width="420" height="420"></canvas></div>
+  <div class="card"><canvas id="mc" width="520" height="420"></canvas></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const el=$('el'),ec=el.getContext('2d'),mc=$('mc'),mx=mc.getContext('2d');
+const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI, f=v=>v.toFixed(2);
+
+function arrow(c,x1,y1,x2,y2,col){
+  c.strokeStyle=c.fillStyle=col;c.lineWidth=2.5;
+  c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();
+  const a=Math.atan2(y2-y1,x2-x1),h=9;
+  c.beginPath();c.moveTo(x2,y2);
+  c.lineTo(x2-h*Math.cos(a-.4),y2-h*Math.sin(a-.4));
+  c.lineTo(x2-h*Math.cos(a+.4),y2-h*Math.sin(a+.4));c.closePath();c.fill();
+}
+
+function calc(){
+  const sx=+$('sx').value,sy=+$('sy').value,t=+$('txy').value,th=+$('th').value;
+  const avg=(sx+sy)/2,d=(sx-sy)/2,R=Math.hypot(d,t),a=rad(2*th);
+  const sxp=avg+d*Math.cos(a)+t*Math.sin(a);
+  const syp=avg-d*Math.cos(a)-t*Math.sin(a);
+  const txp=-d*Math.sin(a)+t*Math.cos(a);
+  const thp=0.5*Math.atan2(t,d);
+  return {sx,sy,t,th,avg,d,R,sxp,syp,txp,thp};
+}
+
+function drawElement(s){
+  const c=ec,W=el.width,H=el.height;c.clearRect(0,0,W,H);
+  c.save();c.translate(W/2,H/2);
+  c.strokeStyle='#bbb';c.setLineDash([4,4]);c.lineWidth=1;
+  c.beginPath();c.moveTo(-190,0);c.lineTo(190,0);c.moveTo(0,-190);c.lineTo(0,190);c.stroke();
+  c.setLineDash([]);
+  c.fillStyle='#888';c.font='13px sans-serif';c.fillText('x',185,-6);c.fillText('y',6,-182);
+  c.save();c.rotate(-rad(s.th));
+  const h=55;
+  c.fillStyle='rgba(80,0,0,.12)';c.strokeStyle='#500000';c.lineWidth=2;
+  c.fillRect(-h,-h,2*h,2*h);c.strokeRect(-h,-h,2*h,2*h);
+  const sc=v=>{const m=Math.max(Math.abs(s.sx),Math.abs(s.sy),Math.abs(s.t),1e-9);return 55*Math.abs(v)/m+8;};
+  const nCol='#1565c0',tCol='#c62828';
+  [[s.sxp,1,0],[s.sxp,-1,0],[s.syp,0,-1],[s.syp,0,1]].forEach(([v,nx,ny])=>{
+    if(Math.abs(v)<1e-9)return;
+    const L=sc(v),bx=nx*h,by=ny*h,sg=v>0?1:-1;
+    if(sg>0)arrow(c,bx,by,bx+nx*L,by+ny*L,nCol);
+    else arrow(c,bx+nx*L,by+ny*L,bx,by,nCol);
+  });
+  if(Math.abs(s.txp)>1e-9){
+    const L=sc(s.txp),sg=s.txp>0?1:-1;
+    const ta=(fx,fy,dx,dy)=>{ // dx,dy in screen-local coords (y down)
+      c.save();c.translate(fx,fy);arrow(c,-dx*L/2,-dy*L/2,dx*L/2,dy*L/2,tCol);c.restore();};
+    ta(h+14,0,0,-sg);ta(-h-14,0,0,sg);   // x' faces: +y' is screen up
+    ta(0,-h-14,-sg,0);ta(0,h+14,sg,0);   // y' faces
+  }
+  c.fillStyle='#500000';c.font='bold 14px sans-serif';
+  c.fillText("x′",h+70,-4);c.fillText("y′",4,-h-70);
+  c.restore();
+  c.fillStyle='#333';c.font='13px sans-serif';
+  c.fillText('blue: normal stress   red: shear stress',-190,195);
+  c.restore();
+}
+
+function drawMohr(s){
+  const c=mx,W=mc.width,H=mc.height;c.clearRect(0,0,W,H);
+  const pad=50,ext=Math.max(s.R,Math.abs(s.sx-s.avg),Math.abs(s.t),1e-6);
+  const scale=(Math.min(W,H)/2-pad)/ext*0.98;
+  const cx=W/2-s.avg*scale,cy=H/2;
+  const X=v=>cx+v*scale,Y=v=>cy+v*scale;
+  c.strokeStyle='#999';c.lineWidth=1;c.fillStyle='#666';c.font='13px sans-serif';
+  c.beginPath();c.moveTo(10,cy);c.lineTo(W-10,cy);c.moveTo(cx,10);c.lineTo(cx,H-10);c.stroke();
+  c.fillText('σ →',W-40,cy-8);c.fillText('τ ↓ (positive down)',cx+6,H-12);
+  c.strokeStyle='#500000';c.lineWidth=2;
+  c.beginPath();c.arc(X(s.avg),cy,s.R*scale,0,2*Math.PI);c.stroke();
+  const P=(sg,ta)=>[X(sg),Y(ta)];
+  const A=P(s.sx,s.t),B=P(s.sy,-s.t),Ap=P(s.sxp,s.txp),Bp=P(s.syp,-s.txp),C=P(s.avg,0);
+  c.strokeStyle='#aaa';c.lineWidth=1.5;c.setLineDash([5,4]);
+  c.beginPath();c.moveTo(...A);c.lineTo(...B);c.stroke();c.setLineDash([]);
+  c.strokeStyle='#1565c0';c.lineWidth=2.5;
+  c.beginPath();c.moveTo(...Ap);c.lineTo(...Bp);c.stroke();
+  const a0=Math.atan2(s.t,s.d),a1=a0+rad(2*s.th);
+  c.strokeStyle='#2e7d32';c.lineWidth=2;c.beginPath();
+  c.arc(C[0],C[1],26,a0,a1,s.th<0);c.stroke();
+  c.fillStyle='#2e7d32';c.fillText('2θ='+f(2*s.th)+'°',C[0]+30,C[1]-30);
+  const dot=(p,col,lab)=>{c.fillStyle=col;c.beginPath();c.arc(p[0],p[1],6,0,7);c.fill();
+    c.fillStyle='#000';c.font='bold 13px sans-serif';c.fillText(lab,p[0]+8,p[1]-8);};
+  dot(A,'#999','X');dot(B,'#999','Y');dot(Ap,'#1565c0',"X′");dot(Bp,'#1565c0',"Y′");
+  dot(C,'#500000','C');
+  dot(P(s.avg+s.R,0),'#e65100','σ1');dot(P(s.avg-s.R,0),'#e65100','σ2');
+  c.fillStyle='#c62828';
+  [P(s.avg,s.R),P(s.avg,-s.R)].forEach(p=>{c.beginPath();c.arc(p[0],p[1],4,0,7);c.fill();});
+}
+
+function update(){
+  const s=calc();
+  $('thv').textContent=s.th;
+  drawElement(s);drawMohr(s);
+  $('o1').textContent=f(s.sxp);$('o2').textContent=f(s.syp);$('o3').textContent=f(s.txp);
+  $('o4').textContent=f(s.avg+s.R)+' / '+f(s.avg-s.R);
+  $('o5').textContent=f(deg(s.thp))+'°';
+  $('o6').textContent=f(s.R);
+  $('o7').textContent=f(deg(s.thp)-45)+'°';
+}
+['sx','sy','txy','th'].forEach(i=>$(i).addEventListener('input',update));
+const setTh=v=>{v=((v+180)%360+360)%360-180;$('th').value=v;update();};
+$('bp').onclick=()=>setTh(deg(calc().thp));
+$('bs').onclick=()=>setTh(deg(calc().thp)-45);
+$('b0').onclick=()=>setTh(0);
+let anim=null;
+$('ba').onclick=()=>{
+  if(anim){clearInterval(anim);anim=null;$('ba').textContent='Animate';return;}
+  $('ba').textContent='Stop';
+  anim=setInterval(()=>setTh(+$('th').value+1),30);
+};
+update();
+</script>
+</body>
+</html>
