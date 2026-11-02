@@ -39,6 +39,9 @@ html{height:auto}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--sans)}
 .wrap{max-width:1320px;margin:0 auto;padding:20px 18px 32px}
 header{display:flex;gap:16px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
+.course{margin:0 0 10px;display:flex;flex-wrap:wrap;gap:2px 14px;align-items:baseline;padding-bottom:8px;border-bottom:2px solid var(--xcol)}
+.course .cname{font-size:clamp(16px,1.6vw,19px);font-weight:700}
+.course .prof{font-size:15px;color:var(--muted)}
 h1{font-size:clamp(22px,2.6vw,30px);line-height:1.15;margin:0;font-weight:700}
 h1 .m{font-family:var(--math);font-style:italic;font-weight:400}
 .sub{margin:4px 0 0;color:var(--muted);max-width:70ch}
@@ -128,8 +131,9 @@ footer{margin-top:14px;color:var(--muted);font-size:13px}
 </head>
 <body>
 <div class="wrap">
-  <header>
+  <header style="align-items:flex-start">
     <div>
+      <p class="course"><span class="cname">Mechanics of Materials</span><span class="prof">Prof. Wonsuh Sung, University of Missouri</span></p>
       <h1>Mohr’s circle explorer</h1>
       <p class="sub">Rotate the stress element and watch its point on Mohr’s circle. Every degree the element turns, the point travels two.</p>
     </div>
