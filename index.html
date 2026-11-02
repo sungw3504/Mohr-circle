@@ -1,164 +1,648 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mohr's Circle Interactive</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mohr’s Circle Explorer — Plane Stress Transformation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
 <style>
-  body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;background:#f4f6f8;color:#222}
-  header{padding:12px 20px;background:#500000;color:#fff}
-  header h1{margin:0;font-size:20px}
-  .wrap{display:flex;flex-wrap:wrap;gap:16px;padding:16px;justify-content:center}
-  .card{background:#fff;border-radius:10px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.15)}
-  canvas{display:block;max-width:100%}
-  .ctrl{min-width:260px;max-width:340px}
-  label{display:block;margin-top:10px;font-size:14px}
-  input[type=number]{width:80px;padding:3px}
-  input[type=range]{width:100%}
-  button{margin:6px 4px 0 0;padding:6px 10px;border:0;border-radius:6px;background:#500000;color:#fff;cursor:pointer}
-  table{border-collapse:collapse;font-size:14px;margin-top:8px;width:100%}
-  td{padding:2px 4px;border-bottom:1px solid #eee}
-  .note{font-size:12px;color:#666;margin-top:8px}
+:root{
+  --bg:#eaeef2; --panel:#ffffff; --ink:#132030; --muted:#5b6878; --line:#cfd7e0; --grid:#e6ebf0;
+  --ax:#7d8896; --xcol:#d1364f; --ycol:#2563d9; --tcol:#8b46e8; --pcol:#0b8a62; --orig:#9aa4b0;
+  --elfill:rgba(209,54,79,.07); --cfill:rgba(19,32,48,.035); --sector:rgba(209,54,79,.12);
+  --btn:#eef2f6; --btnh:#dfe6ee; --focus:#2563d9;
+  --sans:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --math:"STIX Two Text","Cambria Math",Cambria,Georgia,"Times New Roman",serif;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#10161e; --panel:#18202b; --ink:#e6ebf1; --muted:#9aa6b4; --line:#2a3542; --grid:#202a36;
+    --ax:#6e7b8a; --xcol:#ff6b81; --ycol:#6aa2ff; --tcol:#b78cff; --pcol:#3fd1a0; --orig:#5f6b79;
+    --elfill:rgba(255,107,129,.10); --cfill:rgba(255,255,255,.03); --sector:rgba(255,107,129,.16);
+    --btn:#212b37; --btnh:#2b3746; --focus:#6aa2ff; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10161e; --panel:#18202b; --ink:#e6ebf1; --muted:#9aa6b4; --line:#2a3542; --grid:#202a36;
+  --ax:#6e7b8a; --xcol:#ff6b81; --ycol:#6aa2ff; --tcol:#b78cff; --pcol:#3fd1a0; --orig:#5f6b79;
+  --elfill:rgba(255,107,129,.10); --cfill:rgba(255,255,255,.03); --sector:rgba(255,107,129,.16);
+  --btn:#212b37; --btnh:#2b3746; --focus:#6aa2ff; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:auto}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--sans)}
+.wrap{max-width:1320px;margin:0 auto;padding:20px 18px 32px}
+header{display:flex;gap:16px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
+h1{font-size:clamp(22px,2.6vw,30px);line-height:1.15;margin:0;font-weight:700}
+h1 .m{font-family:var(--math);font-style:italic;font-weight:400}
+.sub{margin:4px 0 0;color:var(--muted);max-width:70ch}
+.theme{font:inherit;font-size:14px;background:var(--btn);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer}
+
+.viz{display:grid;grid-template-columns:1fr 1.22fr;gap:14px;margin-top:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.ph{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px}
+.ph h2{font-size:17px;margin:0;font-weight:700}
+.ph .hint{font-size:13px;color:var(--muted)}
+svg.fig{width:100%;height:auto;display:block;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+svg.fig.dragging{cursor:grabbing}
+svg text{font-family:var(--sans)}
+.ax{stroke:var(--ax);stroke-width:1.2}
+.axp{stroke-width:1.4;stroke-dasharray:6 5}
+.axl{fill:var(--muted);font-size:15px;font-family:var(--math)!important;font-style:italic}
+.ghost{fill:none;stroke:var(--orig);stroke-width:1.5;stroke-dasharray:5 4}
+.elem{fill:var(--elfill);stroke:var(--ink);stroke-width:2.2;stroke-linejoin:round}
+.sl{font-family:var(--math)!important;font-style:italic;font-size:17px;dominant-baseline:central;text-anchor:middle;paint-order:stroke;stroke:var(--panel);stroke-width:4px;stroke-linejoin:round}
+.arc{fill:none;stroke-width:2}
+.grid{stroke:var(--grid);stroke-width:1}
+.tick{fill:var(--muted);font-size:11.5px;paint-order:stroke;stroke:var(--panel);stroke-width:3px;stroke-linejoin:round}
+.mc{fill:var(--cfill);stroke:var(--ink);stroke-width:2}
+.diam{stroke:var(--ink);stroke-width:2}
+.diam0{stroke:var(--orig);stroke-width:1.5;stroke-dasharray:5 4}
+.pl{font-size:16px;font-weight:700;dominant-baseline:central;text-anchor:middle;paint-order:stroke;stroke:var(--panel);stroke-width:4px;stroke-linejoin:round}
+.pl.math{font-family:var(--math)!important;font-style:italic;font-weight:600}
+.plotbg{fill:none}
+
+.bridge{margin-top:14px;padding:14px 16px;border-radius:12px;background:var(--panel);border:1px solid var(--line);
+  display:grid;grid-template-columns:1fr auto;gap:12px 18px;align-items:center}
+.callout{font-size:clamp(17px,1.8vw,22px);line-height:1.35}
+.callout .m{font-family:var(--math);font-style:italic}
+.callout b{color:var(--xcol);font-variant-numeric:tabular-nums}
+.thetaRow{grid-column:1 / -1;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.thetaRow label{font-family:var(--math);font-style:italic;font-size:20px}
+#thR{flex:1 1 320px;accent-color:var(--xcol);height:28px}
+.num{font:inherit;width:96px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-variant-numeric:tabular-nums}
+.btns{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:8px}
+button.b{font:inherit;font-size:14px;background:var(--btn);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer;font-variant-numeric:tabular-nums}
+button.b:hover{background:var(--btnh)}
+button.b.p{border-color:var(--pcol)} button.b.s{border-color:var(--tcol)}
+button.b.play{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+.bottom{display:grid;grid-template-columns:1fr 1.22fr;gap:14px;margin-top:14px}
+.row{display:grid;grid-template-columns:56px 1fr 96px 40px;gap:10px;align-items:center;margin:6px 0}
+.row label{font-family:var(--math);font-style:italic;font-size:19px}
+.row input[type=range]{width:100%;accent-color:var(--ink)}
+.unit{color:var(--muted);font-size:14px}
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.opts{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:12px;font-size:14px;color:var(--muted)}
+.opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
+select{font:inherit;font-size:14px;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+
+.cur{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 12px}
+.cur div{border-radius:10px;padding:8px 10px;background:var(--bg)}
+.cur .k{font-family:var(--math);font-style:italic;font-size:17px}
+.cur .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px 16px;font-size:15px}
+.kv span{color:var(--muted)} .kv b{font-variant-numeric:tabular-nums}
+.kv .m{font-family:var(--math);font-style:italic;color:var(--ink)}
+.eq{font-family:var(--math);font-size:17px;line-height:1.7;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);overflow-x:auto}
+.eq i{font-style:italic}
+.eq .r{white-space:nowrap}
+.eq .val{font-family:var(--sans);font-weight:700;font-variant-numeric:tabular-nums}
+.ok{color:var(--pcol);font-family:var(--sans);font-size:14px}
+
+details{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 16px}
+summary{cursor:pointer;font-weight:700}
+details ol{margin:8px 0 4px;padding-left:22px;max-width:80ch}
+details li{margin:4px 0}
+details p{max-width:80ch;color:var(--muted);font-size:15px}
+.m{font-family:var(--math);font-style:italic}
+footer{margin-top:14px;color:var(--muted);font-size:13px}
+
+@media (max-width:900px){
+  .viz,.bottom{grid-template-columns:1fr}
+  .bridge{grid-template-columns:1fr}
+}
+@media (max-width:480px){
+  .row{grid-template-columns:44px 1fr 84px 34px;gap:8px}
+  .cur{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion: reduce){ *{scroll-behavior:auto} }
 </style>
 </head>
 <body>
-<header><h1>Mohr's Circle &amp; Rotating Stress Element (2D)</h1></header>
 <div class="wrap">
-  <div class="card ctrl">
-    <b>Input stresses (any unit, e.g. MPa)</b>
-    <label>σx <input type="number" id="sx" value="80"></label>
-    <label>σy <input type="number" id="sy" value="-20"></label>
-    <label>τxy <input type="number" id="txy" value="40"></label>
-    <label>θ (deg, CCW): <b id="thv">0</b>°
-      <input type="range" id="th" min="-180" max="180" step="0.5" value="0"></label>
-    <button id="bp">Principal planes</button>
-    <button id="bs">Max shear planes</button>
-    <button id="b0">Reset θ</button>
-    <button id="ba">Animate</button>
-    <table>
-      <tr><td>σx′</td><td id="o1"></td></tr>
-      <tr><td>σy′</td><td id="o2"></td></tr>
-      <tr><td>τx′y′</td><td id="o3"></td></tr>
-      <tr><td>σ1 / σ2</td><td id="o4"></td></tr>
-      <tr><td>θp (σ1 plane)</td><td id="o5"></td></tr>
-      <tr><td>τmax</td><td id="o6"></td></tr>
-      <tr><td>θs</td><td id="o7"></td></tr>
-    </table>
-    <div class="note">Sign convention: tension +, τxy + = +y direction on the +x face. τ axis is drawn downward, so a CCW element rotation θ appears as a CCW 2θ rotation on the circle.</div>
-  </div>
-  <div class="card"><canvas id="el" width="420" height="420"></canvas></div>
-  <div class="card"><canvas id="mc" width="520" height="420"></canvas></div>
+  <header>
+    <div>
+      <h1>Mohr’s circle explorer</h1>
+      <p class="sub">Rotate the stress element and watch its point on Mohr’s circle. Every degree the element turns, the point travels two.</p>
+    </div>
+    <button class="theme" id="theme" type="button" aria-label="Switch color theme">Theme: auto</button>
+  </header>
+
+  <section class="viz">
+    <div class="panel">
+      <div class="ph"><h2>Stress element</h2><span class="hint">Drag to rotate</span></div>
+      <svg class="fig" id="el" viewBox="-200 -200 400 400" role="img" aria-label="Rotated plane stress element"></svg>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>Mohr’s circle</h2><span class="hint">Drag around the circle</span></div>
+      <svg class="fig" id="mohr" viewBox="0 0 520 460" role="img" aria-label="Mohr’s circle"></svg>
+    </div>
+  </section>
+
+  <section class="bridge" aria-label="Rotation angle">
+    <div class="callout" id="callout"></div>
+    <div></div>
+    <div class="thetaRow">
+      <label for="thR">θ</label>
+      <input type="range" id="thR" min="-180" max="180" step="0.5" aria-label="Rotation angle theta in degrees">
+      <input type="number" class="num" id="thN" step="0.5" aria-label="Rotation angle theta in degrees">
+      <span class="unit">degrees, counterclockwise +</span>
+    </div>
+    <div class="btns">
+      <button class="b" type="button" data-step="-5">−5°</button>
+      <button class="b" type="button" data-step="-1">−1°</button>
+      <button class="b" type="button" data-step="1">+1°</button>
+      <button class="b" type="button" data-step="5">+5°</button>
+      <button class="b" type="button" id="go0">θ = 0</button>
+      <button class="b p" type="button" id="goP1"></button>
+      <button class="b p" type="button" id="goP2"></button>
+      <button class="b s" type="button" id="goS1"></button>
+      <button class="b s" type="button" id="goS2"></button>
+      <button class="b play" type="button" id="play">▶ Animate</button>
+    </div>
+  </section>
+
+  <section class="bottom">
+    <div class="panel">
+      <div class="ph"><h2>Stress state on the original element</h2></div>
+      <div class="row"><label for="sxN">σ<sub>x</sub></label><input type="range" id="sxR" step="1" aria-label="sigma x slider"><input type="number" class="num" id="sxN" step="any"><span class="unit u"></span></div>
+      <div class="row"><label for="syN">σ<sub>y</sub></label><input type="range" id="syR" step="1" aria-label="sigma y slider"><input type="number" class="num" id="syN" step="any"><span class="unit u"></span></div>
+      <div class="row"><label for="txN">τ<sub>xy</sub></label><input type="range" id="txR" step="1" aria-label="tau xy slider"><input type="number" class="num" id="txN" step="any"><span class="unit u"></span></div>
+      <div class="presets">
+        <button class="b" type="button" data-preset="general">General</button>
+        <button class="b" type="button" data-preset="uni">Uniaxial tension</button>
+        <button class="b" type="button" data-preset="shear">Pure shear (torsion)</button>
+        <button class="b" type="button" data-preset="vessel">Pressure vessel</button>
+        <button class="b" type="button" data-preset="hydro">Equal biaxial</button>
+      </div>
+      <div class="opts">
+        <label>Units <select id="unit"><option>MPa</option><option>ksi</option><option>psi</option><option>kPa</option></select></label>
+        <label><input type="checkbox" id="showOrig" checked> Show original (θ = 0)</label>
+        <label><input type="checkbox" id="showKey" checked> Show principal and max-shear points</label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="ph"><h2>Stresses on the rotated element</h2></div>
+      <div class="cur">
+        <div><div class="k" style="color:var(--xcol)">σ<sub>x′</sub></div><div class="v" id="vSx"></div></div>
+        <div><div class="k" style="color:var(--ycol)">σ<sub>y′</sub></div><div class="v" id="vSy"></div></div>
+        <div><div class="k" style="color:var(--tcol)">τ<sub>x′y′</sub></div><div class="v" id="vTx"></div></div>
+      </div>
+      <div class="kv" id="kv"></div>
+      <div class="eq" id="eq"></div>
+    </div>
+  </section>
+
+  <details>
+    <summary>How to read Mohr’s circle</summary>
+    <ol>
+      <li>Plot point <span class="m">X</span> = (σ<sub>x</sub>, τ<sub>xy</sub>), the stresses on the x face, and point <span class="m">Y</span> = (σ<sub>y</sub>, −τ<sub>xy</sub>), the stresses on the y face.</li>
+      <li>Line <span class="m">XY</span> is a diameter. The center is <span class="m">C</span> = (σ<sub>x</sub> + σ<sub>y</sub>)/2 on the σ axis, and the radius is <span class="m">R</span> = √[((σ<sub>x</sub> − σ<sub>y</sub>)/2)² + τ<sub>xy</sub>²].</li>
+      <li>Rotating the element by θ moves <span class="m">X</span> to <span class="m">X′</span> by 2θ around the circle, in the same direction. The factor of two comes from the faces: the x′ and y′ faces are 90° apart on the element but must sit at opposite ends of a diameter, 180° apart on the circle.</li>
+      <li>Where the circle crosses the σ axis, τ = 0: these are the principal stresses σ<sub>1</sub> and σ<sub>2</sub>. The top and bottom of the circle give the maximum in-plane shear stress, 90° away on the circle, so 45° away on the element.</li>
+    </ol>
+    <p>Sign conventions used here: tension is positive; τ<sub>xy</sub> is positive when it acts in the +y direction on the +x face; θ is positive counterclockwise; τ is plotted positive downward so the point on the circle turns the same way as the element. Some textbooks plot τ positive upward with <span class="m">X</span> at (σ<sub>x</sub>, −τ<sub>xy</sub>). The picture is identical.</p>
+  </details>
+
+  <footer>Keyboard: ← and → change θ by 1° (hold Shift for 5°).</footer>
 </div>
+
 <script>
-const $=id=>document.getElementById(id);
-const el=$('el'),ec=el.getContext('2d'),mc=$('mc'),mx=mc.getContext('2d');
-const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI, f=v=>v.toFixed(2);
+(() => {
+  const D2R = Math.PI / 180;
+  const S = { sx: 80, sy: -40, txy: 30, th: 20, unit: "MPa", showOrig: true, showKey: true, playing: false };
+  const PRESETS = { general: [80, -40, 30], uni: [100, 0, 0], shear: [0, 0, 60], vessel: [100, 50, 0], hydro: [60, 60, 0] };
+  const $ = id => document.getElementById(id);
+  const wrap180 = v => ((v + 180) % 360 + 360) % 360 - 180;
+  const wrap90 = v => ((v + 90) % 180 + 180) % 180 - 90;
+  const f2 = n => n.toFixed(2);
 
-function arrow(c,x1,y1,x2,y2,col){
-  c.strokeStyle=c.fillStyle=col;c.lineWidth=2.5;
-  c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();
-  const a=Math.atan2(y2-y1,x2-x1),h=9;
-  c.beginPath();c.moveTo(x2,y2);
-  c.lineTo(x2-h*Math.cos(a-.4),y2-h*Math.sin(a-.4));
-  c.lineTo(x2-h*Math.cos(a+.4),y2-h*Math.sin(a+.4));c.closePath();c.fill();
-}
-
-function calc(){
-  const sx=+$('sx').value,sy=+$('sy').value,t=+$('txy').value,th=+$('th').value;
-  const avg=(sx+sy)/2,d=(sx-sy)/2,R=Math.hypot(d,t),a=rad(2*th);
-  const sxp=avg+d*Math.cos(a)+t*Math.sin(a);
-  const syp=avg-d*Math.cos(a)-t*Math.sin(a);
-  const txp=-d*Math.sin(a)+t*Math.cos(a);
-  const thp=0.5*Math.atan2(t,d);
-  return {sx,sy,t,th,avg,d,R,sxp,syp,txp,thp};
-}
-
-function drawElement(s){
-  const c=ec,W=el.width,H=el.height;c.clearRect(0,0,W,H);
-  c.save();c.translate(W/2,H/2);
-  c.strokeStyle='#bbb';c.setLineDash([4,4]);c.lineWidth=1;
-  c.beginPath();c.moveTo(-190,0);c.lineTo(190,0);c.moveTo(0,-190);c.lineTo(0,190);c.stroke();
-  c.setLineDash([]);
-  c.fillStyle='#888';c.font='13px sans-serif';c.fillText('x',185,-6);c.fillText('y',6,-182);
-  c.save();c.rotate(-rad(s.th));
-  const h=55;
-  c.fillStyle='rgba(80,0,0,.12)';c.strokeStyle='#500000';c.lineWidth=2;
-  c.fillRect(-h,-h,2*h,2*h);c.strokeRect(-h,-h,2*h,2*h);
-  const sc=v=>{const m=Math.max(Math.abs(s.sx),Math.abs(s.sy),Math.abs(s.t),1e-9);return 55*Math.abs(v)/m+8;};
-  const nCol='#1565c0',tCol='#c62828';
-  [[s.sxp,1,0],[s.sxp,-1,0],[s.syp,0,-1],[s.syp,0,1]].forEach(([v,nx,ny])=>{
-    if(Math.abs(v)<1e-9)return;
-    const L=sc(v),bx=nx*h,by=ny*h,sg=v>0?1:-1;
-    if(sg>0)arrow(c,bx,by,bx+nx*L,by+ny*L,nCol);
-    else arrow(c,bx+nx*L,by+ny*L,bx,by,nCol);
-  });
-  if(Math.abs(s.txp)>1e-9){
-    const L=sc(s.txp),sg=s.txp>0?1:-1;
-    const ta=(fx,fy,dx,dy)=>{ // dx,dy in screen-local coords (y down)
-      c.save();c.translate(fx,fy);arrow(c,-dx*L/2,-dy*L/2,dx*L/2,dy*L/2,tCol);c.restore();};
-    ta(h+14,0,0,-sg);ta(-h-14,0,0,sg);   // x' faces: +y' is screen up
-    ta(0,-h-14,-sg,0);ta(0,h+14,sg,0);   // y' faces
+  function fmt(v, d = 2) {
+    if (!isFinite(v)) return "—";
+    const m = Math.pow(10, d);
+    let r = Math.round(v * m) / m;
+    if (r === 0) r = 0;
+    let s = r.toFixed(d);
+    if (s.indexOf(".") >= 0) s = s.replace(/0+$/, "").replace(/\.$/, "");
+    if (s === "-0") s = "0";
+    return s.replace("-", "−");
   }
-  c.fillStyle='#500000';c.font='bold 14px sans-serif';
-  c.fillText("x′",h+70,-4);c.fillText("y′",4,-h-70);
-  c.restore();
-  c.fillStyle='#333';c.font='13px sans-serif';
-  c.fillText('blue: normal stress   red: shear stress',-190,195);
-  c.restore();
-}
 
-function drawMohr(s){
-  const c=mx,W=mc.width,H=mc.height;c.clearRect(0,0,W,H);
-  const pad=50,ext=Math.max(s.R,Math.abs(s.sx-s.avg),Math.abs(s.t),1e-6);
-  const scale=(Math.min(W,H)/2-pad)/ext*0.98;
-  const cx=W/2-s.avg*scale,cy=H/2;
-  const X=v=>cx+v*scale,Y=v=>cy+v*scale;
-  c.strokeStyle='#999';c.lineWidth=1;c.fillStyle='#666';c.font='13px sans-serif';
-  c.beginPath();c.moveTo(10,cy);c.lineTo(W-10,cy);c.moveTo(cx,10);c.lineTo(cx,H-10);c.stroke();
-  c.fillText('σ →',W-40,cy-8);c.fillText('τ ↓ (positive down)',cx+6,H-12);
-  c.strokeStyle='#500000';c.lineWidth=2;
-  c.beginPath();c.arc(X(s.avg),cy,s.R*scale,0,2*Math.PI);c.stroke();
-  const P=(sg,ta)=>[X(sg),Y(ta)];
-  const A=P(s.sx,s.t),B=P(s.sy,-s.t),Ap=P(s.sxp,s.txp),Bp=P(s.syp,-s.txp),C=P(s.avg,0);
-  c.strokeStyle='#aaa';c.lineWidth=1.5;c.setLineDash([5,4]);
-  c.beginPath();c.moveTo(...A);c.lineTo(...B);c.stroke();c.setLineDash([]);
-  c.strokeStyle='#1565c0';c.lineWidth=2.5;
-  c.beginPath();c.moveTo(...Ap);c.lineTo(...Bp);c.stroke();
-  const a0=Math.atan2(s.t,s.d),a1=a0+rad(2*s.th);
-  c.strokeStyle='#2e7d32';c.lineWidth=2;c.beginPath();
-  c.arc(C[0],C[1],26,a0,a1,s.th<0);c.stroke();
-  c.fillStyle='#2e7d32';c.fillText('2θ='+f(2*s.th)+'°',C[0]+30,C[1]-30);
-  const dot=(p,col,lab)=>{c.fillStyle=col;c.beginPath();c.arc(p[0],p[1],6,0,7);c.fill();
-    c.fillStyle='#000';c.font='bold 13px sans-serif';c.fillText(lab,p[0]+8,p[1]-8);};
-  dot(A,'#999','X');dot(B,'#999','Y');dot(Ap,'#1565c0',"X′");dot(Bp,'#1565c0',"Y′");
-  dot(C,'#500000','C');
-  dot(P(s.avg+s.R,0),'#e65100','σ1');dot(P(s.avg-s.R,0),'#e65100','σ2');
-  c.fillStyle='#c62828';
-  [P(s.avg,s.R),P(s.avg,-s.R)].forEach(p=>{c.beginPath();c.arc(p[0],p[1],4,0,7);c.fill();});
-}
+  function calc() {
+    const { sx, sy, txy, th } = S;
+    const C = (sx + sy) / 2, a = (sx - sy) / 2, R = Math.hypot(a, txy);
+    const t2 = 2 * th * D2R, c2 = Math.cos(t2), s2 = Math.sin(t2);
+    const sxp = C + a * c2 + txy * s2;
+    const syp = C - a * c2 - txy * s2;
+    const txyp = -a * s2 + txy * c2;
+    const base = R > 1e-12 ? 0.5 * Math.atan2(txy, a) / D2R : 0;
+    return {
+      C, a, R, sxp, syp, txyp, sig1: C + R, sig2: C - R,
+      thp1: wrap90(base), thp2: wrap90(base + 90), ths1: wrap90(base - 45), ths2: wrap90(base + 45)
+    };
+  }
 
-function update(){
-  const s=calc();
-  $('thv').textContent=s.th;
-  drawElement(s);drawMohr(s);
-  $('o1').textContent=f(s.sxp);$('o2').textContent=f(s.syp);$('o3').textContent=f(s.txp);
-  $('o4').textContent=f(s.avg+s.R)+' / '+f(s.avg-s.R);
-  $('o5').textContent=f(deg(s.thp))+'°';
-  $('o6').textContent=f(s.R);
-  $('o7').textContent=f(deg(s.thp)-45)+'°';
-}
-['sx','sy','txy','th'].forEach(i=>$(i).addEventListener('input',update));
-const setTh=v=>{v=((v+180)%360+360)%360-180;$('th').value=v;update();};
-$('bp').onclick=()=>setTh(deg(calc().thp));
-$('bs').onclick=()=>setTh(deg(calc().thp)-45);
-$('b0').onclick=()=>setTh(0);
-let anim=null;
-$('ba').onclick=()=>{
-  if(anim){clearInterval(anim);anim=null;$('ba').textContent='Animate';return;}
-  $('ba').textContent='Stop';
-  anim=setInterval(()=>setTh(+$('th').value+1),30);
-};
-update();
+  function arrowSeg(p1, p2, col, w) {
+    const [x1, y1] = p1, [x2, y2] = p2;
+    const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy);
+    if (L < 2) return "";
+    const ux = dx / L, uy = dy / L, hl = Math.min(11, L * 0.55), hw = hl * 0.5;
+    const bx = x2 - ux * hl, by = y2 - uy * hl;
+    return `<line x1="${f2(x1)}" y1="${f2(y1)}" x2="${f2(bx)}" y2="${f2(by)}" style="stroke:${col}" stroke-width="${w}" stroke-linecap="round"/>` +
+      `<polygon points="${f2(x2)},${f2(y2)} ${f2(bx - uy * hw)},${f2(by + ux * hw)} ${f2(bx + uy * hw)},${f2(by - ux * hw)}" style="fill:${col}"/>`;
+  }
+
+  const sub = t => `<tspan dy="5" font-size="0.72em">${t}</tspan>`;
+
+  /* ---------- stress element ---------- */
+  function renderElement(r) {
+    const th = S.th * D2R, c = Math.cos(th), s = Math.sin(th);
+    const P = (u, v) => [u * c - v * s, -(u * s + v * c)];
+    const h = 58;
+    let o = "";
+    o += `<line class="ax" x1="-185" y1="0" x2="185" y2="0"/><line class="ax" x1="0" y1="185" x2="0" y2="-185"/>`;
+    o += `<text class="axl" x="188" y="18">x</text><text class="axl" x="8" y="-186">y</text>`;
+    if (S.showOrig) o += `<rect class="ghost" x="${-h}" y="${-h}" width="${2 * h}" height="${2 * h}"/>`;
+
+    const xe = P(176, 0), ye = P(0, 176), xl = P(190, 0), yl = P(0, 190);
+    o += `<line class="axp" x1="0" y1="0" x2="${f2(xe[0])}" y2="${f2(xe[1])}" style="stroke:var(--xcol)"/>`;
+    o += `<line class="axp" x1="0" y1="0" x2="${f2(ye[0])}" y2="${f2(ye[1])}" style="stroke:var(--ycol)"/>`;
+    o += `<text class="sl" x="${f2(xl[0])}" y="${f2(xl[1])}" style="fill:var(--xcol)">x′</text>`;
+    o += `<text class="sl" x="${f2(yl[0])}" y="${f2(yl[1])}" style="fill:var(--ycol)">y′</text>`;
+
+    const pts = [P(h, h), P(-h, h), P(-h, -h), P(h, -h)].map(p => p.map(f2).join(",")).join(" ");
+    o += `<polygon class="elem" points="${pts}"/>`;
+
+    const M = Math.max(Math.abs(r.sig1), Math.abs(r.sig2));
+    const eps = Math.max(M * 1e-4, 1e-9);
+    const len = v => 14 + 50 * Math.abs(v) / M;
+    const nb = h + 16;
+
+    const dSh = r.txyp < 0 ? -1 : 1;
+    const normal = (val, ax, col, lab) => {
+      if (M < 1e-9 || Math.abs(val) < eps) return "";
+      const L = len(val);
+      let out = "";
+      for (const g of [1, -1]) {
+        const n = ax === "x" ? P(g * nb, 0) : P(0, g * nb);
+        const f = ax === "x" ? P(g * (nb + L), 0) : P(0, g * (nb + L));
+        out += val > 0 ? arrowSeg(n, f, col, 3.2) : arrowSeg(f, n, col, 3.2);
+      }
+      const lp = ax === "x" ? P(nb + L / 2, -dSh * 18) : P(-dSh * 20, nb + L / 2);
+      out += `<text class="sl" x="${f2(lp[0])}" y="${f2(lp[1])}" style="fill:${col}">σ${sub(lab)}</text>`;
+      return out;
+    };
+    o += normal(r.sxp, "x", "var(--xcol)", "x′");
+    o += normal(r.syp, "y", "var(--ycol)", "y′");
+
+    if (M >= 1e-9 && Math.abs(r.txyp) >= eps) {
+      const L = len(r.txyp), d = Math.sign(r.txyp), q = h + 8, col = "var(--tcol)";
+      o += arrowSeg(P(q, -d * L / 2), P(q, d * L / 2), col, 2.6);
+      o += arrowSeg(P(-q, d * L / 2), P(-q, -d * L / 2), col, 2.6);
+      o += arrowSeg(P(-d * L / 2, q), P(d * L / 2, q), col, 2.6);
+      o += arrowSeg(P(d * L / 2, -q), P(-d * L / 2, -q), col, 2.6);
+      const lp = P(h + 30, d * (L / 2 + 10));
+      o += `<text class="sl" x="${f2(lp[0])}" y="${f2(lp[1])}" style="fill:${col}">τ${sub("x′y′")}</text>`;
+    }
+
+    if (Math.abs(S.th) > 0.05) {
+      const rr = 160, n = Math.max(8, Math.ceil(Math.abs(S.th) / 2));
+      let d = "";
+      for (let i = 0; i <= n; i++) {
+        const ph = th * i / n;
+        d += (i ? "L" : "M") + f2(rr * Math.cos(ph)) + "," + f2(-rr * Math.sin(ph));
+      }
+      o += `<path class="arc" d="${d}" style="stroke:var(--xcol)"/>`;
+      if (Math.abs(S.th) > 4) {
+        const E = [rr * Math.cos(th), -rr * Math.sin(th)];
+        const sg = Math.sign(th);
+        const T = [-Math.sin(th) * sg, -Math.cos(th) * sg];
+        o += arrowSeg([E[0] - T[0] * 12, E[1] - T[1] * 12], E, "var(--xcol)", 2);
+      }
+      const lm = [176 * Math.cos(th / 2), -176 * Math.sin(th / 2)];
+      o += `<text class="sl" x="${f2(lm[0])}" y="${f2(lm[1])}" style="fill:var(--xcol);font-size:19px">θ</text>`;
+    }
+    $("el").innerHTML = o;
+  }
+
+  /* ---------- Mohr's circle ---------- */
+  let mohrC = [260, 230];
+  function niceStep(raw) {
+    const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const f = raw / p;
+    return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+  }
+
+  function renderMohr(r) {
+    const W = 520, H = 460, ml = 28, mr = 28, mt = 26, mb = 30, pw = W - ml - mr, ph = H - mt - mb;
+    const smin = Math.min(r.C - r.R, 0), smax = Math.max(r.C + r.R, 0);
+    let span = smax - smin, Rr = r.R;
+    if (Rr < 1e-9) Rr = Math.max(span * 0.3, 1);
+    if (span < 1e-9) span = 2 * Rr;
+    const k = Math.min(pw / (span * 1.2), ph / (2 * Rr * 1.32));
+    const smid = (smin + smax) / 2, cx = ml + pw / 2, cy = mt + ph / 2;
+    const X = v => cx + (v - smid) * k, Y = t => cy + t * k;
+    const sL = smid - (pw / 2) / k, sR = smid + (pw / 2) / k, tT = -(ph / 2) / k, tB = (ph / 2) / k;
+    const step = niceStep(Math.max(sR - sL, tB - tT) / 8);
+    let o = "";
+
+    for (let i = Math.ceil(sL / step); i <= Math.floor(sR / step); i++) {
+      const v = i * step, x = X(v);
+      o += `<line class="grid" x1="${f2(x)}" y1="${mt}" x2="${f2(x)}" y2="${mt + ph}"/>`;
+      if (i !== 0) o += `<text class="tick" x="${f2(x)}" y="${f2(cy + 15)}" text-anchor="middle">${fmt(v, 3)}</text>`;
+    }
+    for (let i = Math.ceil(tT / step); i <= Math.floor(tB / step); i++) {
+      const v = i * step, y = Y(v);
+      o += `<line class="grid" x1="${ml}" y1="${f2(y)}" x2="${ml + pw}" y2="${f2(y)}"/>`;
+      if (i !== 0) o += `<text class="tick" x="${f2(X(0) - 6)}" y="${f2(y + 4)}" text-anchor="end">${fmt(v, 3)}</text>`;
+    }
+    const x0 = X(0);
+    o += arrowSeg([ml, cy], [ml + pw + 14, cy], "var(--ax)", 1.3);
+    o += arrowSeg([x0, mt - 8], [x0, mt + ph + 14], "var(--ax)", 1.3);
+    o += `<text class="axl" x="${ml + pw + 6}" y="${f2(cy - 10)}">σ</text>`;
+    o += `<text class="axl" x="${f2(x0 + 8)}" y="${mt + ph + 8}">τ <tspan font-style="normal" font-size="12">(+ down)</tspan></text>`;
+
+    const Cx = X(r.C), Cy = Y(0), Rp = r.R * k;
+    mohrC = [Cx, Cy];
+    if (Rp > 0.5) o += `<circle class="mc" cx="${f2(Cx)}" cy="${f2(Cy)}" r="${f2(Rp)}"/>`;
+
+    const off = (p, dist) => {
+      const dx = p[0] - Cx, dy = p[1] - Cy, L = Math.hypot(dx, dy);
+      return L < 1 ? [p[0] + dist * 0.7, p[1] - dist * 0.7] : [p[0] + dx / L * dist, p[1] + dy / L * dist];
+    };
+
+    const Xo = [X(S.sx), Y(S.txy)], Yo = [X(S.sy), Y(-S.txy)];
+    const Xp = [X(r.sxp), Y(r.txyp)], Yp = [X(r.syp), Y(-r.txyp)];
+
+    // 2θ sector + arc
+    if (Rp > 2 && Math.abs(S.th) > 0.05) {
+      const ra = Math.max(22, Math.min(Rp * 0.45, 70));
+      const phi0 = Math.atan2(S.txy, r.a), tot = -2 * S.th * D2R;
+      const n = Math.max(10, Math.ceil(Math.abs(S.th)));
+      let arc = "", sec = `M${f2(Cx)},${f2(Cy)}`;
+      for (let i = 0; i <= n; i++) {
+        const ph2 = phi0 + tot * i / n;
+        const px = Cx + ra * Math.cos(ph2), py = Cy + ra * Math.sin(ph2);
+        arc += (i ? "L" : "M") + f2(px) + "," + f2(py);
+        sec += "L" + f2(px) + "," + f2(py);
+      }
+      o += `<path d="${sec}Z" style="fill:var(--sector)"/>`;
+      o += `<path class="arc" d="${arc}" style="stroke:var(--xcol)"/>`;
+      if (Math.abs(S.th) > 2) {
+        const pe = phi0 + tot, sg = Math.sign(tot);
+        const E = [Cx + ra * Math.cos(pe), Cy + ra * Math.sin(pe)];
+        const T = [-Math.sin(pe) * sg, Math.cos(pe) * sg];
+        o += arrowSeg([E[0] - T[0] * 12, E[1] - T[1] * 12], E, "var(--xcol)", 2);
+      }
+      const pm = phi0 + tot / 2, lr = ra + 17;
+      o += `<text class="pl math" x="${f2(Cx + lr * Math.cos(pm))}" y="${f2(Cy + lr * Math.sin(pm))}" style="fill:var(--xcol)">2θ</text>`;
+    }
+
+    if (S.showOrig && Rp > 0.5) {
+      o += `<line class="diam0" x1="${f2(Xo[0])}" y1="${f2(Xo[1])}" x2="${f2(Yo[0])}" y2="${f2(Yo[1])}"/>`;
+    }
+    if (Rp > 0.5) o += `<line class="diam" x1="${f2(Yp[0])}" y1="${f2(Yp[1])}" x2="${f2(Xp[0])}" y2="${f2(Xp[1])}"/>`;
+
+    o += `<circle cx="${f2(Cx)}" cy="${f2(Cy)}" r="3.5" style="fill:var(--ink)"/>`;
+    o += `<text class="pl math" x="${f2(Cx + 9)}" y="${f2(Cy - 11)}" style="fill:var(--ink);font-size:15px">C</text>`;
+
+    if (S.showKey && Rp > 0.5) {
+      const dia = (x, y, col) => `<polygon points="${f2(x)},${f2(y - 6)} ${f2(x + 6)},${f2(y)} ${f2(x)},${f2(y + 6)} ${f2(x - 6)},${f2(y)}" style="fill:${col}"/>`;
+      const s1x = X(r.sig1), s2x = X(r.sig2);
+      o += dia(s1x, Cy, "var(--pcol)") + dia(s2x, Cy, "var(--pcol)");
+      o += `<text class="pl math" x="${f2(s1x + 16)}" y="${f2(Cy - 14)}" style="fill:var(--pcol);font-size:15px">σ₁</text>`;
+      o += `<text class="pl math" x="${f2(s2x - 16)}" y="${f2(Cy - 14)}" style="fill:var(--pcol);font-size:15px">σ₂</text>`;
+      o += dia(Cx, Cy + Rp, "var(--tcol)") + dia(Cx, Cy - Rp, "var(--tcol)");
+      o += `<text class="pl" x="${f2(Cx + 48)}" y="${f2(Cy + Rp + 4)}" style="fill:var(--tcol);font-size:14px">+τ<tspan font-size="0.75em" dy="3">max</tspan></text>`;
+      o += `<text class="pl" x="${f2(Cx + 48)}" y="${f2(Cy - Rp - 4)}" style="fill:var(--tcol);font-size:14px">−τ<tspan font-size="0.75em" dy="3">max</tspan></text>`;
+    }
+
+    const farApart = Math.hypot(Xo[0] - Xp[0], Xo[1] - Xp[1]) > 22;
+    if (S.showOrig) {
+      o += `<circle cx="${f2(Xo[0])}" cy="${f2(Xo[1])}" r="5" style="fill:var(--panel);stroke:var(--orig);stroke-width:2"/>`;
+      o += `<circle cx="${f2(Yo[0])}" cy="${f2(Yo[1])}" r="5" style="fill:var(--panel);stroke:var(--orig);stroke-width:2"/>`;
+      if (farApart) {
+        const lx = off(Xo, 17), ly = off(Yo, 17);
+        o += `<text class="pl math" x="${f2(lx[0])}" y="${f2(lx[1])}" style="fill:var(--orig)">X</text>`;
+        o += `<text class="pl math" x="${f2(ly[0])}" y="${f2(ly[1])}" style="fill:var(--orig)">Y</text>`;
+      }
+    }
+    o += `<circle cx="${f2(Yp[0])}" cy="${f2(Yp[1])}" r="7" style="fill:var(--ycol);stroke:var(--panel);stroke-width:2"/>`;
+    o += `<circle cx="${f2(Xp[0])}" cy="${f2(Xp[1])}" r="7.5" style="fill:var(--xcol);stroke:var(--panel);stroke-width:2"/>`;
+    const lxp = off(Xp, 20), lyp = off(Yp, 20);
+    o += `<text class="pl math" x="${f2(lxp[0])}" y="${f2(lxp[1])}" style="fill:var(--xcol)">X′</text>`;
+    o += `<text class="pl math" x="${f2(lyp[0])}" y="${f2(lyp[1])}" style="fill:var(--ycol)">Y′</text>`;
+
+    $("mohr").innerHTML = o;
+  }
+
+  /* ---------- text panels ---------- */
+  function renderText(r) {
+    const u = S.unit, th = S.th, dir = th > 0.05 ? "counterclockwise" : th < -0.05 ? "clockwise" : "";
+    const rot = s => s ? ` ${s === "counterclockwise" ? "↺" : "↻"} ${s}` : "";
+    $("callout").innerHTML =
+      `Element turns <b><span class="m">θ</span> = ${fmt(th, 1)}°</b>${rot(dir)} &nbsp;⟶&nbsp; ` +
+      `point <span class="m">X′</span> on the circle turns <b>2<span class="m">θ</span> = ${fmt(2 * th, 1)}°</b>${rot(dir)}`;
+
+    $("vSx").textContent = `${fmt(r.sxp)} ${u}`;
+    $("vSy").textContent = `${fmt(r.syp)} ${u}`;
+    $("vTx").textContent = `${fmt(r.txyp)} ${u}`;
+
+    $("kv").innerHTML =
+      `<div><span>Center <span class="m">C</span></span> <b>${fmt(r.C)} ${u}</b></div>` +
+      `<div><span>Radius <span class="m">R</span></span> <b>${fmt(r.R)} ${u}</b></div>` +
+      `<div><span class="m">σ</span><span>₁ = C + R</span> <b>${fmt(r.sig1)} ${u}</b></div>` +
+      `<div><span class="m">σ</span><span>₂ = C − R</span> <b>${fmt(r.sig2)} ${u}</b></div>` +
+      `<div><span><span class="m">τ</span><sub>max</sub> (in-plane) = R</span> <b>${fmt(r.R)} ${u}</b></div>` +
+      `<div><span><span class="m">θ</span><sub>p1</sub> (to σ₁)</span> <b>${fmt(r.thp1, 1)}°</b></div>`;
+
+    const C = fmt(r.C), A = fmt(r.a), T = fmt(S.txy), tt = fmt(2 * th, 1);
+    $("eq").innerHTML =
+      `<div class="r"><i>σ</i><sub>x′</sub> = <i>C</i> + [(<i>σ</i><sub>x</sub> − <i>σ</i><sub>y</sub>)/2] cos 2<i>θ</i> + <i>τ</i><sub>xy</sub> sin 2<i>θ</i> ` +
+      `= ${C} + (${A}) cos ${tt}° + (${T}) sin ${tt}° = <span class="val" style="color:var(--xcol)">${fmt(r.sxp)}</span></div>` +
+      `<div class="r"><i>σ</i><sub>y′</sub> = <i>C</i> − [(<i>σ</i><sub>x</sub> − <i>σ</i><sub>y</sub>)/2] cos 2<i>θ</i> − <i>τ</i><sub>xy</sub> sin 2<i>θ</i> ` +
+      `= ${C} − (${A}) cos ${tt}° − (${T}) sin ${tt}° = <span class="val" style="color:var(--ycol)">${fmt(r.syp)}</span></div>` +
+      `<div class="r"><i>τ</i><sub>x′y′</sub> = −[(<i>σ</i><sub>x</sub> − <i>σ</i><sub>y</sub>)/2] sin 2<i>θ</i> + <i>τ</i><sub>xy</sub> cos 2<i>θ</i> ` +
+      `= −(${A}) sin ${tt}° + (${T}) cos ${tt}° = <span class="val" style="color:var(--tcol)">${fmt(r.txyp)}</span></div>` +
+      `<div class="r"><i>σ</i><sub>x′</sub> + <i>σ</i><sub>y′</sub> = ${fmt(r.sxp + r.syp)} = <i>σ</i><sub>x</sub> + <i>σ</i><sub>y</sub> ` +
+      `<span class="ok">✓ the sum never changes with θ</span></div>`;
+
+    $("goP1").textContent = `θp1 = ${fmt(r.thp1, 1)}° (σ₁)`;
+    $("goP2").textContent = `θp2 = ${fmt(r.thp2, 1)}° (σ₂)`;
+    $("goS1").textContent = `θs = ${fmt(r.ths1, 1)}° (+τmax)`;
+    $("goS2").textContent = `θs = ${fmt(r.ths2, 1)}° (−τmax)`;
+    document.querySelectorAll(".u").forEach(e => e.textContent = u);
+  }
+
+  /* ---------- inputs ---------- */
+  const pairs = [["sx", "sxR", "sxN"], ["sy", "syR", "syN"], ["txy", "txR", "txN"]];
+  function setSliderRange() {
+    const m = Math.max(100, ...pairs.map(p => Math.abs(S[p[0]]) * 1.5));
+    const lim = Math.ceil(m / 50) * 50;
+    pairs.forEach(([, rId]) => { $(rId).min = -lim; $(rId).max = lim; $(rId).step = lim > 2000 ? lim / 400 : 1; });
+  }
+  function syncInputs() {
+    pairs.forEach(([k, rId, nId]) => {
+      $(rId).value = S[k];
+      if (document.activeElement !== $(nId)) $(nId).value = +S[k].toFixed(4);
+    });
+    $("thR").value = S.th;
+    if (document.activeElement !== $("thN")) $("thN").value = +S.th.toFixed(2);
+  }
+
+  function render() {
+    const r = calc();
+    renderElement(r);
+    renderMohr(r);
+    renderText(r);
+    syncInputs();
+  }
+
+  function setTheta(v) { S.th = wrap180(v); render(); }
+
+  let tw = null, raf = null, lastT = 0;
+  function stopTween() { if (tw) cancelAnimationFrame(tw); tw = null; }
+  function stopPlay() {
+    S.playing = false;
+    if (raf) cancelAnimationFrame(raf);
+    raf = null;
+    $("play").textContent = "▶ Animate";
+  }
+  function stopAll() { stopTween(); stopPlay(); }
+
+  function goTo(target) {
+    stopAll();
+    const from = S.th, to = target;
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { setTheta(to); return; }
+    const t0 = performance.now(), dur = Math.min(1000, 250 + Math.abs(to - from) * 6);
+    const step = t => {
+      const p = Math.min(1, (t - t0) / dur);
+      const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      setTheta(from + (to - from) * e);
+      tw = p < 1 ? requestAnimationFrame(step) : null;
+    };
+    tw = requestAnimationFrame(step);
+  }
+
+  function tick(t) {
+    if (!S.playing) return;
+    const dt = lastT ? (t - lastT) / 1000 : 0;
+    lastT = t;
+    setTheta(S.th + dt * 30);
+    raf = requestAnimationFrame(tick);
+  }
+  $("play").addEventListener("click", () => {
+    if (S.playing) { stopPlay(); return; }
+    stopTween();
+    S.playing = true; lastT = 0;
+    $("play").textContent = "❚❚ Pause";
+    raf = requestAnimationFrame(tick);
+  });
+
+  pairs.forEach(([k, rId, nId]) => {
+    $(rId).addEventListener("input", e => { stopAll(); S[k] = parseFloat(e.target.value); render(); });
+    $(nId).addEventListener("input", e => {
+      const v = parseFloat(e.target.value);
+      if (isFinite(v)) { stopAll(); S[k] = v; setSliderRange(); render(); }
+    });
+    $(nId).addEventListener("blur", () => syncInputs());
+  });
+  $("thR").addEventListener("input", e => { stopAll(); setTheta(parseFloat(e.target.value)); });
+  $("thN").addEventListener("input", e => {
+    const v = parseFloat(e.target.value);
+    if (isFinite(v)) { stopAll(); setTheta(v); }
+  });
+  $("thN").addEventListener("blur", () => syncInputs());
+
+  document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", () => {
+    stopAll(); setTheta(S.th + parseFloat(b.dataset.step));
+  }));
+  $("go0").addEventListener("click", () => goTo(0));
+  $("goP1").addEventListener("click", () => goTo(calc().thp1));
+  $("goP2").addEventListener("click", () => goTo(calc().thp2));
+  $("goS1").addEventListener("click", () => goTo(calc().ths1));
+  $("goS2").addEventListener("click", () => goTo(calc().ths2));
+
+  document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => {
+    stopAll();
+    const p = PRESETS[b.dataset.preset];
+    S.sx = p[0]; S.sy = p[1]; S.txy = p[2];
+    setSliderRange();
+    goTo(0);
+  }));
+
+  $("unit").addEventListener("change", e => { S.unit = e.target.value; render(); });
+  $("showOrig").addEventListener("change", e => { S.showOrig = e.target.checked; render(); });
+  $("showKey").addEventListener("change", e => { S.showKey = e.target.checked; render(); });
+
+  /* ---------- dragging ---------- */
+  function svgPt(svg, e) {
+    const p = svg.createSVGPoint();
+    p.x = e.clientX; p.y = e.clientY;
+    return p.matrixTransform(svg.getScreenCTM().inverse());
+  }
+  function makeDrag(svg, centerFn, factor) {
+    let last = null;
+    svg.addEventListener("pointerdown", e => {
+      const c = centerFn(), p = svgPt(svg, e);
+      if (Math.hypot(p.x - c[0], p.y - c[1]) < 4) return;
+      stopAll();
+      last = Math.atan2(p.y - c[1], p.x - c[0]);
+      svg.setPointerCapture(e.pointerId);
+      svg.classList.add("dragging");
+      e.preventDefault();
+    });
+    svg.addEventListener("pointermove", e => {
+      if (last === null) return;
+      const c = centerFn(), p = svgPt(svg, e);
+      const a = Math.atan2(p.y - c[1], p.x - c[0]);
+      let d = a - last;
+      if (d > Math.PI) d -= 2 * Math.PI;
+      if (d < -Math.PI) d += 2 * Math.PI;
+      last = a;
+      setTheta(S.th - (d / D2R) * factor);
+    });
+    const end = () => { last = null; svg.classList.remove("dragging"); };
+    svg.addEventListener("pointerup", end);
+    svg.addEventListener("pointercancel", end);
+  }
+  makeDrag($("el"), () => [0, 0], 1);
+  makeDrag($("mohr"), () => mohrC, 0.5);
+
+  document.addEventListener("keydown", e => {
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "select" || tag === "textarea") return;
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      stopAll();
+      const d = (e.shiftKey ? 5 : 1) * (e.key === "ArrowRight" ? 1 : -1);
+      setTheta(S.th + d);
+      e.preventDefault();
+    }
+  });
+
+  /* ---------- theme ---------- */
+  const modes = ["auto", "light", "dark"];
+  let mi = 0;
+  $("theme").addEventListener("click", () => {
+    mi = (mi + 1) % 3;
+    if (modes[mi] === "auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", modes[mi]);
+    $("theme").textContent = "Theme: " + modes[mi];
+  });
+
+  setSliderRange();
+  render();
+})();
 </script>
 </body>
 </html>
