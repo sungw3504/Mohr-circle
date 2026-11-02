@@ -135,7 +135,7 @@ footer{margin-top:14px;color:var(--muted);font-size:13px}
     <div>
       <p class="course"><span class="cname">ENGINR 2200: Mechanics of Materials</span><span class="prof">Prof. Wonsuh Sung, University of Missouri</span></p>
       <h1>Mohr’s circle explorer</h1>
-      <p class="sub">Rotate the stress element and watch its point on Mohr’s circle. Every degree the element turns, the point travels two.</p>
+      <p class="sub">Rotate the stress element and watch its point on Mohr’s circle. Every degree the element turns, the point travels two, in the same direction.</p>
     </div>
     <button class="theme" id="theme" type="button" aria-label="Switch color theme">Theme: auto</button>
   </header>
@@ -209,12 +209,12 @@ footer{margin-top:14px;color:var(--muted);font-size:13px}
   <details>
     <summary>How to read Mohr’s circle</summary>
     <ol>
-      <li>Plot point <span class="m">X</span> = (σ<sub>x</sub>, τ<sub>xy</sub>), the stresses on the x face, and point <span class="m">Y</span> = (σ<sub>y</sub>, −τ<sub>xy</sub>), the stresses on the y face.</li>
+      <li>Plot point <span class="m">X</span> = (σ<sub>x</sub>, −τ<sub>xy</sub>) for the x face and point <span class="m">Y</span> = (σ<sub>y</sub>, +τ<sub>xy</sub>) for the y face. The rule: if the shear stress on a face tends to rotate the element <b>clockwise</b>, plot that face’s point <b>above</b> the σ axis; if it tends to rotate the element counterclockwise, plot it below.</li>
       <li>Line <span class="m">XY</span> is a diameter. The center is <span class="m">C</span> = (σ<sub>x</sub> + σ<sub>y</sub>)/2 on the σ axis, and the radius is <span class="m">R</span> = √[((σ<sub>x</sub> − σ<sub>y</sub>)/2)² + τ<sub>xy</sub>²].</li>
-      <li>Rotating the element by θ moves <span class="m">X</span> to <span class="m">X′</span> by 2θ around the circle, in the same direction. The factor of two comes from the faces: the x′ and y′ faces are 90° apart on the element but must sit at opposite ends of a diameter, 180° apart on the circle.</li>
-      <li>Where the circle crosses the σ axis, τ = 0: these are the principal stresses σ<sub>1</sub> and σ<sub>2</sub>. The top and bottom of the circle give the maximum in-plane shear stress, 90° away on the circle, so 45° away on the element.</li>
+      <li>Rotating the element by θ moves <span class="m">X</span> to <span class="m">X′</span> by 2θ around the circle, in the same direction. The factor of two comes from the faces: the x′ and y′ faces are 90° apart on the element but sit at opposite ends of a diameter, 180° apart on the circle.</li>
+      <li>Where the circle crosses the σ axis (points <span class="m">A</span> and <span class="m">B</span>), there is no shear: these are the principal stresses σ<sub>max</sub> and σ<sub>min</sub>. The top and bottom of the circle (points <span class="m">D</span> and <span class="m">E</span>) give the maximum in-plane shear stress τ<sub>max</sub> = <span class="m">R</span>. They are 90° away from A and B on the circle, so 45° away on the element.</li>
     </ol>
-    <p>Sign conventions used here: tension is positive; τ<sub>xy</sub> is positive when it acts in the +y direction on the +x face; θ is positive counterclockwise; τ is plotted positive downward so the point on the circle turns the same way as the element. Some textbooks plot τ positive upward with <span class="m">X</span> at (σ<sub>x</sub>, −τ<sub>xy</sub>). The picture is identical.</p>
+    <p>Sign conventions used here (Beer &amp; Johnston): tension is positive; τ<sub>xy</sub> is positive when it acts in the +y direction on the +x face; θ is positive counterclockwise; the τ axis on the circle points up. Because the x-face point is plotted at −τ<sub>xy</sub>, the vertical position of <span class="m">X′</span> on the circle is −τ<sub>x′y′</sub>. Use the clockwise/counterclockwise rule to read the circle, and the panel on the right for the signed value of τ<sub>x′y′</sub>.</p>
   </details>
 
   <footer>Keyboard: ← and → change θ by 1° (hold Shift for 5°).</footer>
@@ -251,7 +251,9 @@ footer{margin-top:14px;color:var(--muted);font-size:13px}
     const base = R > 1e-12 ? 0.5 * Math.atan2(txy, a) / D2R : 0;
     return {
       C, a, R, sxp, syp, txyp, sig1: C + R, sig2: C - R,
-      thp1: wrap90(base), thp2: wrap90(base + 90), ths1: wrap90(base - 45), ths2: wrap90(base + 45)
+      thp1: wrap90(base), thp2: wrap90(base + 90),
+      // thD: x′ point at the top of the circle (D); thE: at the bottom (E)
+      thD: wrap90(base + 45), thE: wrap90(base - 45)
     };
   }
 
@@ -338,7 +340,7 @@ footer{margin-top:14px;color:var(--muted);font-size:13px}
     $("el").innerHTML = o;
   }
 
-  /* ---------- Mohr's circle ---------- */
+  /* ---------- Mohr's circle (Beer convention: τ axis up, X plotted at −τxy) ---------- */
   let mohrC = [260, 230];
   function niceStep(raw) {
     const p = Math.pow(10, Math.floor(Math.log10(raw)));
@@ -354,6 +356,7 @@ footer{margin-top:14px;color:var(--muted);font-size:13px}
     if (span < 1e-9) span = 2 * Rr;
     const k = Math.min(pw / (span * 1.2), ph / (2 * Rr * 1.32));
     const smid = (smin + smax) / 2, cx = ml + pw / 2, cy = mt + ph / 2;
+    // Internal value t is the x-face shear τx′y′; it is drawn at height −t (Beer), i.e. below the axis when positive.
     const X = v => cx + (v - smid) * k, Y = t => cy + t * k;
     const sL = smid - (pw / 2) / k, sR = smid + (pw / 2) / k, tT = -(ph / 2) / k, tB = (ph / 2) / k;
     const step = niceStep(Math.max(sR - sL, tB - tT) / 8);
@@ -367,13 +370,14 @@ footer{margin-top:14px;color:var(--muted);font-size:13px}
     for (let i = Math.ceil(tT / step); i <= Math.floor(tB / step); i++) {
       const v = i * step, y = Y(v);
       o += `<line class="grid" x1="${ml}" y1="${f2(y)}" x2="${ml + pw}" y2="${f2(y)}"/>`;
-      if (i !== 0) o += `<text class="tick" x="${f2(X(0) - 6)}" y="${f2(y + 4)}" text-anchor="end">${fmt(v, 3)}</text>`;
+      // τ axis points up: a grid line drawn below the axis carries a negative label
+      if (i !== 0) o += `<text class="tick" x="${f2(X(0) - 6)}" y="${f2(y + 4)}" text-anchor="end">${fmt(-v, 3)}</text>`;
     }
     const x0 = X(0);
     o += arrowSeg([ml, cy], [ml + pw + 14, cy], "var(--ax)", 1.3);
-    o += arrowSeg([x0, mt - 8], [x0, mt + ph + 14], "var(--ax)", 1.3);
+    o += arrowSeg([x0, mt + ph + 8], [x0, mt - 14], "var(--ax)", 1.3);
     o += `<text class="axl" x="${ml + pw + 6}" y="${f2(cy - 10)}">σ</text>`;
-    o += `<text class="axl" x="${f2(x0 + 8)}" y="${mt + ph + 8}">τ <tspan font-style="normal" font-size="12">(+ down)</tspan></text>`;
+    o += `<text class="axl" x="${f2(x0 + 10)}" y="${mt - 6}">τ</text>`;
 
     const Cx = X(r.C), Cy = Y(0), Rp = r.R * k;
     mohrC = [Cx, Cy];
@@ -423,11 +427,11 @@ footer{margin-top:14px;color:var(--muted);font-size:13px}
       const dia = (x, y, col) => `<polygon points="${f2(x)},${f2(y - 6)} ${f2(x + 6)},${f2(y)} ${f2(x)},${f2(y + 6)} ${f2(x - 6)},${f2(y)}" style="fill:${col}"/>`;
       const s1x = X(r.sig1), s2x = X(r.sig2);
       o += dia(s1x, Cy, "var(--pcol)") + dia(s2x, Cy, "var(--pcol)");
-      o += `<text class="pl math" x="${f2(s1x + 16)}" y="${f2(Cy - 14)}" style="fill:var(--pcol);font-size:15px">σ₁</text>`;
-      o += `<text class="pl math" x="${f2(s2x - 16)}" y="${f2(Cy - 14)}" style="fill:var(--pcol);font-size:15px">σ₂</text>`;
-      o += dia(Cx, Cy + Rp, "var(--tcol)") + dia(Cx, Cy - Rp, "var(--tcol)");
-      o += `<text class="pl" x="${f2(Cx + 48)}" y="${f2(Cy + Rp + 4)}" style="fill:var(--tcol);font-size:14px">+τ<tspan font-size="0.75em" dy="3">max</tspan></text>`;
-      o += `<text class="pl" x="${f2(Cx + 48)}" y="${f2(Cy - Rp - 4)}" style="fill:var(--tcol);font-size:14px">−τ<tspan font-size="0.75em" dy="3">max</tspan></text>`;
+      o += `<text class="pl" x="${f2(s1x + 26)}" y="${f2(Cy - 14)}" style="fill:var(--pcol);font-size:14px"><tspan font-family="var(--math)" font-style="italic">A</tspan> σ<tspan font-size="0.75em" dy="3">max</tspan></text>`;
+      o += `<text class="pl" x="${f2(s2x - 26)}" y="${f2(Cy - 14)}" style="fill:var(--pcol);font-size:14px"><tspan font-family="var(--math)" font-style="italic">B</tspan> σ<tspan font-size="0.75em" dy="3">min</tspan></text>`;
+      o += dia(Cx, Cy - Rp, "var(--tcol)") + dia(Cx, Cy + Rp, "var(--tcol)");
+      o += `<text class="pl" x="${f2(Cx + 44)}" y="${f2(Cy - Rp - 4)}" style="fill:var(--tcol);font-size:14px"><tspan font-style="italic">D</tspan> τ<tspan font-size="0.75em" dy="3">max</tspan></text>`;
+      o += `<text class="pl" x="${f2(Cx + 44)}" y="${f2(Cy + Rp + 4)}" style="fill:var(--tcol);font-size:14px"><tspan font-style="italic">E</tspan> τ<tspan font-size="0.75em" dy="3">max</tspan></text>`;
     }
 
     const farApart = Math.hypot(Xo[0] - Xp[0], Xo[1] - Xp[1]) > 22;
@@ -464,10 +468,10 @@ footer{margin-top:14px;color:var(--muted);font-size:13px}
     $("kv").innerHTML =
       `<div><span>Center <span class="m">C</span></span> <b>${fmt(r.C)} ${u}</b></div>` +
       `<div><span>Radius <span class="m">R</span></span> <b>${fmt(r.R)} ${u}</b></div>` +
-      `<div><span class="m">σ</span><span>₁ = C + R</span> <b>${fmt(r.sig1)} ${u}</b></div>` +
-      `<div><span class="m">σ</span><span>₂ = C − R</span> <b>${fmt(r.sig2)} ${u}</b></div>` +
+      `<div><span><span class="m">σ</span><sub>max</sub> = C + R</span> <b>${fmt(r.sig1)} ${u}</b></div>` +
+      `<div><span><span class="m">σ</span><sub>min</sub> = C − R</span> <b>${fmt(r.sig2)} ${u}</b></div>` +
       `<div><span><span class="m">τ</span><sub>max</sub> (in-plane) = R</span> <b>${fmt(r.R)} ${u}</b></div>` +
-      `<div><span><span class="m">θ</span><sub>p1</sub> (to σ₁)</span> <b>${fmt(r.thp1, 1)}°</b></div>`;
+      `<div><span><span class="m">θ</span><sub>p</sub> (to σ<sub>max</sub>)</span> <b>${fmt(r.thp1, 1)}°</b></div>`;
 
     const C = fmt(r.C), A = fmt(r.a), T = fmt(S.txy), tt = fmt(2 * th, 1);
     $("eq").innerHTML =
@@ -480,10 +484,10 @@ footer{margin-top:14px;color:var(--muted);font-size:13px}
       `<div class="r"><i>σ</i><sub>x′</sub> + <i>σ</i><sub>y′</sub> = ${fmt(r.sxp + r.syp)} = <i>σ</i><sub>x</sub> + <i>σ</i><sub>y</sub> ` +
       `<span class="ok">✓ the sum never changes with θ</span></div>`;
 
-    $("goP1").textContent = `θp1 = ${fmt(r.thp1, 1)}° (σ₁)`;
-    $("goP2").textContent = `θp2 = ${fmt(r.thp2, 1)}° (σ₂)`;
-    $("goS1").textContent = `θs = ${fmt(r.ths1, 1)}° (+τmax)`;
-    $("goS2").textContent = `θs = ${fmt(r.ths2, 1)}° (−τmax)`;
+    $("goP1").textContent = `θp = ${fmt(r.thp1, 1)}° (σmax, A)`;
+    $("goP2").textContent = `θp = ${fmt(r.thp2, 1)}° (σmin, B)`;
+    $("goS1").textContent = `θs = ${fmt(r.thD, 1)}° (τmax, D)`;
+    $("goS2").textContent = `θs = ${fmt(r.thE, 1)}° (τmax, E)`;
     document.querySelectorAll(".u").forEach(e => e.textContent = u);
   }
 
@@ -574,8 +578,8 @@ footer{margin-top:14px;color:var(--muted);font-size:13px}
   $("go0").addEventListener("click", () => goTo(0));
   $("goP1").addEventListener("click", () => goTo(calc().thp1));
   $("goP2").addEventListener("click", () => goTo(calc().thp2));
-  $("goS1").addEventListener("click", () => goTo(calc().ths1));
-  $("goS2").addEventListener("click", () => goTo(calc().ths2));
+  $("goS1").addEventListener("click", () => goTo(calc().thD));
+  $("goS2").addEventListener("click", () => goTo(calc().thE));
 
   document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => {
     stopAll();
